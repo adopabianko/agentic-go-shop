@@ -2,7 +2,7 @@
   "version": 1,
   "name": "Sprint latihan: inventory adjustments + order pagination",
   "max_parallel": 3,
-  "baseline": "Core order/inventory implemented. The 10 tasks below are future work, not claimed as delivered features.",
+  "baseline": "Core order/inventory implemented. T01-T06 are integrated on main, but the new endpoints remain inactive until T09 wires routes and promotes the HTTP contract.",
   "contracts": [
     "docs/contracts/baseline.md",
     "docs/contracts/next.md",
@@ -13,7 +13,7 @@
     {
       "id": "T01",
       "title": "Use case penambahan stok",
-      "status": "planned",
+      "status": "integrated",
       "branch": "feat/t01-adjustment-service",
       "port": 8101,
       "sds": "docs/sds/T01-adjustment-service.md",
@@ -28,12 +28,12 @@
       "checks": [
         "go test -race ./internal/adjustments/..."
       ],
-      "commit": null
+      "commit": "a9f918e10acd7cd1ea4910751c3ef0fd353639d7"
     },
     {
       "id": "T02",
       "title": "Adapter penambahan stok atomik",
-      "status": "planned",
+      "status": "integrated",
       "branch": "feat/t02-adjustment-memory",
       "port": 8102,
       "sds": "docs/sds/T02-adjustment-memory.md",
@@ -47,12 +47,12 @@
       "checks": [
         "go test -race ./internal/adapters/memory/... ./internal/orders/..."
       ],
-      "commit": null
+      "commit": "6f7ed3d1d147133c01576b4bd7b63ec290fa22e1"
     },
     {
       "id": "T03",
       "title": "Handler HTTP penambahan stok",
-      "status": "planned",
+      "status": "integrated",
       "branch": "feat/t03-adjustment-http",
       "port": 8103,
       "sds": "docs/sds/T03-adjustment-http.md",
@@ -69,12 +69,12 @@
       "checks": [
         "go test -race ./internal/httpapi/..."
       ],
-      "commit": null
+      "commit": "109585b30eab129d977aaa04fed38f005ba9dac4"
     },
     {
       "id": "T04",
       "title": "Use case daftar order",
-      "status": "planned",
+      "status": "integrated",
       "branch": "feat/t04-order-list-service",
       "port": 8104,
       "sds": "docs/sds/T04-order-list-service.md",
@@ -89,12 +89,12 @@
       "checks": [
         "go test -race ./internal/orderquery/..."
       ],
-      "commit": null
+      "commit": "8d7445101c8954e317df1fe1664a2706f7bd7a76"
     },
     {
       "id": "T05",
       "title": "Adapter pagination order",
-      "status": "planned",
+      "status": "integrated",
       "branch": "feat/t05-order-list-memory",
       "port": 8105,
       "sds": "docs/sds/T05-order-list-memory.md",
@@ -108,12 +108,12 @@
       "checks": [
         "go test -race ./internal/adapters/memory/..."
       ],
-      "commit": null
+      "commit": "1f58252393fa8059e618ce00114cc7f6082d82c2"
     },
     {
       "id": "T06",
       "title": "Handler HTTP daftar order",
-      "status": "planned",
+      "status": "integrated",
       "branch": "feat/t06-order-list-http",
       "port": 8106,
       "sds": "docs/sds/T06-order-list-http.md",
@@ -130,7 +130,7 @@
       "checks": [
         "go test -race ./internal/httpapi/..."
       ],
-      "commit": null
+      "commit": "f4bb1a5928e39588500a4f3256792f9082967d13"
     },
     {
       "id": "T07",
