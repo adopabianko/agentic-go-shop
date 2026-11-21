@@ -1,0 +1,19 @@
+image: golang:1.26.11-bookworm
+
+stages:
+  - verify
+
+verify:
+  stage: verify
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends python3
+  script:
+    - make check
+    - make build
+  artifacts:
+    paths:
+      - bin/api
+    expire_in: 7 days
+
+# Local checks are authoritative evidence for this example. This pipeline has
+# not been executed on a GitLab runner; it needs network access for the image/apt.

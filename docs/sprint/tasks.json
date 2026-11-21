@@ -1,0 +1,250 @@
+{
+  "version": 1,
+  "name": "Sprint latihan: inventory adjustments + order pagination",
+  "max_parallel": 3,
+  "baseline": "Core order/inventory implemented. The 10 tasks below are future work, not claimed as delivered features.",
+  "contracts": [
+    "docs/contracts/baseline.md",
+    "docs/contracts/next.md",
+    "internal/contracts/next.go",
+    "api/next.openapi.json"
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "title": "Use case penambahan stok",
+      "status": "planned",
+      "branch": "feat/t01-adjustment-service",
+      "port": 8101,
+      "sds": "docs/sds/T01-adjustment-service.md",
+      "start_after": [],
+      "integrate_after": [
+        "T02"
+      ],
+      "owns": [
+        "internal/adjustments/*",
+        "docs/handoffs/T01.md"
+      ],
+      "checks": [
+        "go test -race ./internal/adjustments/..."
+      ],
+      "commit": null
+    },
+    {
+      "id": "T02",
+      "title": "Adapter penambahan stok atomik",
+      "status": "planned",
+      "branch": "feat/t02-adjustment-memory",
+      "port": 8102,
+      "sds": "docs/sds/T02-adjustment-memory.md",
+      "start_after": [],
+      "integrate_after": [],
+      "owns": [
+        "internal/adapters/memory/adjustments.go",
+        "internal/adapters/memory/adjustments_test.go",
+        "docs/handoffs/T02.md"
+      ],
+      "checks": [
+        "go test -race ./internal/adapters/memory/... ./internal/orders/..."
+      ],
+      "commit": null
+    },
+    {
+      "id": "T03",
+      "title": "Handler HTTP penambahan stok",
+      "status": "planned",
+      "branch": "feat/t03-adjustment-http",
+      "port": 8103,
+      "sds": "docs/sds/T03-adjustment-http.md",
+      "start_after": [],
+      "integrate_after": [
+        "T01",
+        "T02"
+      ],
+      "owns": [
+        "internal/httpapi/adjustments.go",
+        "internal/httpapi/adjustments_test.go",
+        "docs/handoffs/T03.md"
+      ],
+      "checks": [
+        "go test -race ./internal/httpapi/..."
+      ],
+      "commit": null
+    },
+    {
+      "id": "T04",
+      "title": "Use case daftar order",
+      "status": "planned",
+      "branch": "feat/t04-order-list-service",
+      "port": 8104,
+      "sds": "docs/sds/T04-order-list-service.md",
+      "start_after": [],
+      "integrate_after": [
+        "T05"
+      ],
+      "owns": [
+        "internal/orderquery/*",
+        "docs/handoffs/T04.md"
+      ],
+      "checks": [
+        "go test -race ./internal/orderquery/..."
+      ],
+      "commit": null
+    },
+    {
+      "id": "T05",
+      "title": "Adapter pagination order",
+      "status": "planned",
+      "branch": "feat/t05-order-list-memory",
+      "port": 8105,
+      "sds": "docs/sds/T05-order-list-memory.md",
+      "start_after": [],
+      "integrate_after": [],
+      "owns": [
+        "internal/adapters/memory/order_list.go",
+        "internal/adapters/memory/order_list_test.go",
+        "docs/handoffs/T05.md"
+      ],
+      "checks": [
+        "go test -race ./internal/adapters/memory/..."
+      ],
+      "commit": null
+    },
+    {
+      "id": "T06",
+      "title": "Handler HTTP daftar order",
+      "status": "planned",
+      "branch": "feat/t06-order-list-http",
+      "port": 8106,
+      "sds": "docs/sds/T06-order-list-http.md",
+      "start_after": [],
+      "integrate_after": [
+        "T04",
+        "T05"
+      ],
+      "owns": [
+        "internal/httpapi/order_list.go",
+        "internal/httpapi/order_list_test.go",
+        "docs/handoffs/T06.md"
+      ],
+      "checks": [
+        "go test -race ./internal/httpapi/..."
+      ],
+      "commit": null
+    },
+    {
+      "id": "T07",
+      "title": "Integrasi adjustment dan order",
+      "status": "planned",
+      "branch": "feat/t07-adjustment-acceptance",
+      "port": 8107,
+      "sds": "docs/sds/T07-adjustment-acceptance.md",
+      "start_after": [
+        "T01",
+        "T02",
+        "T03"
+      ],
+      "integrate_after": [
+        "T01",
+        "T02",
+        "T03"
+      ],
+      "owns": [
+        "tests/adjustments/*",
+        "docs/handoffs/T07.md"
+      ],
+      "checks": [
+        "go test -race ./tests/adjustments/..."
+      ],
+      "commit": null
+    },
+    {
+      "id": "T08",
+      "title": "Integrasi query dan lifecycle order",
+      "status": "planned",
+      "branch": "feat/t08-pagination-acceptance",
+      "port": 8108,
+      "sds": "docs/sds/T08-pagination-acceptance.md",
+      "start_after": [
+        "T04",
+        "T05",
+        "T06"
+      ],
+      "integrate_after": [
+        "T04",
+        "T05",
+        "T06"
+      ],
+      "owns": [
+        "tests/orderquery/*",
+        "docs/handoffs/T08.md"
+      ],
+      "checks": [
+        "go test -race ./tests/orderquery/..."
+      ],
+      "commit": null
+    },
+    {
+      "id": "T09",
+      "title": "Wiring fitur dan promosi kontrak",
+      "status": "planned",
+      "branch": "feat/t09-feature-wiring",
+      "port": 8109,
+      "sds": "docs/sds/T09-feature-wiring.md",
+      "start_after": [
+        "T01",
+        "T02",
+        "T03",
+        "T04",
+        "T05",
+        "T06"
+      ],
+      "integrate_after": [
+        "T07",
+        "T08"
+      ],
+      "owns": [
+        "internal/httpapi/handler.go",
+        "internal/httpapi/handler_test.go",
+        "cmd/api/main.go",
+        "api/openapi.json",
+        "docs/handoffs/T09.md"
+      ],
+      "checks": [
+        "go test -race ./...",
+        "go vet ./..."
+      ],
+      "commit": null
+    },
+    {
+      "id": "T10",
+      "title": "Validasi gabungan dan handoff sprint",
+      "status": "planned",
+      "branch": "feat/t10-release-evidence",
+      "port": 8110,
+      "sds": "docs/sds/T10-release-evidence.md",
+      "start_after": [
+        "T07",
+        "T08",
+        "T09"
+      ],
+      "integrate_after": [
+        "T07",
+        "T08",
+        "T09"
+      ],
+      "owns": [
+        "docs/verification.md",
+        "docs/sprint/release.md",
+        "scripts/smoke.py",
+        "docs/handoffs/T10.md"
+      ],
+      "checks": [
+        "make check",
+        "make build",
+        "python3 scripts/smoke.py --url http://127.0.0.1:8099"
+      ],
+      "commit": null
+    }
+  ]
+}
