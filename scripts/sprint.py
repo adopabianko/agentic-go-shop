@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Local sprint planner and worktree helper. Never launches AI, pushes, or merges."""
 import argparse
+import copy
 import fnmatch
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,8 +22,7 @@ def git(root, *args):
     return result.stdout.rstrip("\n")
 
 
-def load(root):
-    manifest = json.loads((root / "docs/sprint/tasks.json").read_text())
+def validate_manifest(root, manifest):
     tasks = manifest["tasks"]
     by_id = {}
     branches = set()
@@ -65,7 +67,12 @@ def load(root):
 
     for task_id in by_id:
         visit(task_id)
-    return manifest, by_id
+    return by_id
+
+
+def load(root):
+    manifest = json.loads((root / "docs/sprint/tasks.json").read_text())
+    return manifest, validate_manifest(root, manifest)
 
 
 def pending(tasks, task, field):
@@ -152,6 +159,58 @@ def check_scope(root, task, base):
     print(f"Scope OK: {len(paths)} changed paths within {task['id']} ownership. This is a review check, not a security sandbox.")
 
 
+def write_manifest(root, manifest):
+    path = root / "docs/sprint/tasks.json"
+    mode = path.stat().st_mode
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile("w", dir=path.parent, prefix=path.name + ".", delete=False) as stream:
+            temporary = Path(stream.name)
+            json.dump(manifest, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+        os.chmod(temporary, mode)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None and temporary.exists():
+            temporary.unlink()
+
+
+def update_manifest(root, manifest, tasks, task_id, status, commit_ref=None):
+    require_repo(root)
+    task = tasks[task_id]
+    completed = status in {"implemented", "integrated"}
+    if completed and not commit_ref:
+        raise ValueError(f"{status} status requires --commit with a commit SHA or ref")
+    if not completed and commit_ref:
+        raise ValueError(f"{status} status does not accept --commit")
+
+    start_waiting = pending(tasks, task, "start_after")
+    if status != "planned" and start_waiting:
+        raise ValueError("start prerequisites not implemented: " + ", ".join(start_waiting))
+    integration_waiting = pending(tasks, task, "integrate_after")
+    if status == "integrated" and integration_waiting:
+        raise ValueError("integration prerequisites not integrated: " + ", ".join(integration_waiting))
+
+    commit = None
+    if completed:
+        commit = git(root, "rev-parse", "--verify", "--end-of-options", commit_ref + "^{commit}")
+        if status == "integrated":
+            try:
+                git(root, "merge-base", "--is-ancestor", commit, "HEAD")
+            except ValueError as exc:
+                raise ValueError("integrated commit is not an ancestor of the coordinator HEAD") from exc
+
+    updated = copy.deepcopy(manifest)
+    updated_task = next(item for item in updated["tasks"] if item["id"] == task_id)
+    previous = updated_task["status"]
+    updated_task["status"] = status
+    updated_task["commit"] = commit
+    validate_manifest(root, updated)
+    write_manifest(root, updated)
+    suffix = f" at {commit}" if commit else ""
+    print(f"Updated {task_id}: {previous} -> {status}{suffix}")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT, help="repository root")
@@ -161,6 +220,7 @@ def main(argv=None):
     p = sub.add_parser("brief"); p.add_argument("task")
     p = sub.add_parser("worktree"); p.add_argument("task"); p.add_argument("--base", default="main"); p.add_argument("--destination", type=Path)
     p = sub.add_parser("check-scope"); p.add_argument("task"); p.add_argument("--base", default="main")
+    p = sub.add_parser("update"); p.add_argument("task"); p.add_argument("--status", required=True, choices=sorted(STATES)); p.add_argument("--commit")
     args = parser.parse_args(argv)
     root = args.root.resolve()
     try:
@@ -180,6 +240,8 @@ def main(argv=None):
                 create_worktree(root, tasks, task, args.base, destination)
             elif args.command == "check-scope":
                 check_scope(root, task, args.base)
+            elif args.command == "update":
+                update_manifest(root, manifest, tasks, args.task, args.status, args.commit)
     except (ValueError, KeyError, TypeError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

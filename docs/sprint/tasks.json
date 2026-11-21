@@ -135,7 +135,7 @@
     {
       "id": "T07",
       "title": "Integrasi adjustment dan order",
-      "status": "planned",
+      "status": "integrated",
       "branch": "feat/t07-adjustment-acceptance",
       "port": 8107,
       "sds": "docs/sds/T07-adjustment-acceptance.md",
@@ -156,12 +156,12 @@
       "checks": [
         "go test -race ./tests/adjustments/..."
       ],
-      "commit": null
+      "commit": "dd7e1d496b5032b05f0100f9313b86a18af8a98b"
     },
     {
       "id": "T08",
       "title": "Integrasi query dan lifecycle order",
-      "status": "planned",
+      "status": "integrated",
       "branch": "feat/t08-pagination-acceptance",
       "port": 8108,
       "sds": "docs/sds/T08-pagination-acceptance.md",
@@ -182,12 +182,12 @@
       "checks": [
         "go test -race ./tests/orderquery/..."
       ],
-      "commit": null
+      "commit": "e81e53bef98718ba279c80323c8a641b5e88bb84"
     },
     {
       "id": "T09",
       "title": "Wiring fitur dan promosi kontrak",
-      "status": "planned",
+      "status": "integrated",
       "branch": "feat/t09-feature-wiring",
       "port": 8109,
       "sds": "docs/sds/T09-feature-wiring.md",
@@ -214,7 +214,7 @@
         "go test -race ./...",
         "go vet ./..."
       ],
-      "commit": null
+      "commit": "a9a5f01fec2e569dacf17adb42bcd5cdf455a440"
     },
     {
       "id": "T10",

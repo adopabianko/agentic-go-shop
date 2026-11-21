@@ -4,9 +4,10 @@ PYTHON ?= python3
 export GOCACHE ?= $(CURDIR)/.cache/go-build
 export GOTOOLCHAIN := local
 
-.PHONY: help run build fmt fmt-check test vet check plan brief worktree scope smoke live-check
+.PHONY: help run build fmt fmt-check test vet check plan brief worktree scope update-manifest smoke live-check
 help:
 	@echo 'make run | build | check | plan | brief TASK=T01 | worktree TASK=T01 BASE=main | scope TASK=T01 BASE=main'
+	@echo 'make update-manifest TASK=T01 STATUS=in_progress [COMMIT=<sha-or-ref>]'
 
 run:
 	$(GO) run ./cmd/api
@@ -43,6 +44,11 @@ worktree:
 
 scope:
 	$(PYTHON) scripts/sprint.py check-scope $(TASK) --base $(BASE)
+
+update-manifest:
+	@test -n "$(TASK)" || { echo 'TASK is required (example: TASK=T07)'; exit 2; }
+	@test -n "$(STATUS)" || { echo 'STATUS is required (planned|in_progress|implemented|integrated)'; exit 2; }
+	$(PYTHON) scripts/sprint.py update $(TASK) --status $(STATUS) $(if $(COMMIT),--commit $(COMMIT),)
 
 URL ?= http://127.0.0.1:8080
 smoke:
