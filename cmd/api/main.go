@@ -12,9 +12,11 @@ import (
 	"time"
 
 	"example.com/agentic-go-shop/internal/adapters/memory"
+	"example.com/agentic-go-shop/internal/adjustments"
 	"example.com/agentic-go-shop/internal/domain"
 	"example.com/agentic-go-shop/internal/httpapi"
 	"example.com/agentic-go-shop/internal/inventory"
+	"example.com/agentic-go-shop/internal/orderquery"
 	"example.com/agentic-go-shop/internal/orders"
 )
 
@@ -41,7 +43,10 @@ func run(logger *slog.Logger) error {
 	}
 	defer listener.Close()
 	server := &http.Server{
-		Handler:           httpapi.New(orders.New(store, inventory.Service{}), store, logger),
+		Handler: httpapi.NewWithFeatures(
+			orders.New(store, inventory.Service{}), store,
+			adjustments.New(store), orderquery.New(store), logger,
+		),
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,
 		WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024,
 	}
