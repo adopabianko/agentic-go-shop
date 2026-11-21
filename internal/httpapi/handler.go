@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"time"
 
+	"example.com/agentic-go-shop/internal/contracts"
 	"example.com/agentic-go-shop/internal/domain"
 	"example.com/agentic-go-shop/internal/inventory"
 	"example.com/agentic-go-shop/internal/orders"
@@ -28,17 +29,48 @@ type Handler struct {
 }
 
 func New(service *orders.Service, store ports.Store, logger *slog.Logger) http.Handler {
+	return newHandler(service, store, nil, nil, logger)
+}
+
+// NewWithFeatures builds the active v1.1 router while New remains available to
+// baseline callers that only compose the original order and inventory routes.
+func NewWithFeatures(service *orders.Service, store ports.Store, adjustments contracts.AdjustmentUseCase, orderList contracts.OrderListUseCase, logger *slog.Logger) http.Handler {
+	return newHandler(service, store, adjustments, orderList, logger)
+}
+
+func newHandler(service *orders.Service, store ports.Store, adjustments contracts.AdjustmentUseCase, orderList contracts.OrderListUseCase, logger *slog.Logger) http.Handler {
 	h := &Handler{orders: service, store: store, logger: logger}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", h.only(http.MethodGet, func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}))
 	mux.HandleFunc("/v1/inventory/{sku}", h.only(http.MethodGet, h.getStock))
-	mux.HandleFunc("/v1/orders", h.only(http.MethodPost, h.createOrder))
+	if orderList == nil {
+		mux.HandleFunc("/v1/orders", h.only(http.MethodPost, h.createOrder))
+	} else {
+		mux.HandleFunc("/v1/orders", h.ordersEndpoint(OrderListHandler(orderList, logger)))
+	}
 	mux.HandleFunc("/v1/orders/{id}", h.only(http.MethodGet, h.getOrder))
 	mux.HandleFunc("/v1/orders/{id}/cancel", h.only(http.MethodPost, h.cancelOrder))
+	if adjustments != nil {
+		mux.HandleFunc("/v1/inventory/{sku}/adjustments", h.only(http.MethodPost, AdjustmentHandler(adjustments, logger)))
+	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "not_found", "route not found") })
 	return h.observe(mux)
+}
+
+func (h *Handler) ordersEndpoint(list http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			list(w, r)
+		case http.MethodPost:
+			h.createOrder(w, r)
+		default:
+			w.Header().Set("Allow", http.MethodGet+", "+http.MethodPost)
+			fail(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+		}
+	}
 }
 
 func (h *Handler) only(method string, next http.HandlerFunc) http.HandlerFunc {

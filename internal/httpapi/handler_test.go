@@ -17,9 +17,11 @@ import (
 
 	"example.com/agentic-go-shop/api"
 	"example.com/agentic-go-shop/internal/adapters/memory"
+	"example.com/agentic-go-shop/internal/adjustments"
 	"example.com/agentic-go-shop/internal/domain"
 	"example.com/agentic-go-shop/internal/httpapi"
 	"example.com/agentic-go-shop/internal/inventory"
+	"example.com/agentic-go-shop/internal/orderquery"
 	"example.com/agentic-go-shop/internal/orders"
 )
 
@@ -35,7 +37,11 @@ func newHarness(t *testing.T) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(httpapi.New(orders.New(store, inventory.Service{}), store, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	server := httptest.NewServer(httpapi.NewWithFeatures(
+		orders.New(store, inventory.Service{}), store,
+		adjustments.New(store), orderquery.New(store), logger,
+	))
 	t.Cleanup(server.Close)
 	var spec map[string]any
 	if err := json.Unmarshal(api.Document, &spec); err != nil {
@@ -130,6 +136,71 @@ func TestHTTPJourneyAndContract(t *testing.T) {
 	replayed, _ = h.request("POST", "/v1/orders", "/v1/orders", body, "journey-key-001", "application/json", 201)
 	if !reflect.DeepEqual(created, replayed) {
 		t.Fatal("creation replay must retain original response")
+	}
+}
+
+func TestFeatureJourneyAndContract(t *testing.T) {
+	h := newHarness(t)
+	adjustmentBody := `{"quantity":3,"reason":"supplier delivery"}`
+	receipt, headers := h.request("POST", "/v1/inventory/SKU-001/adjustments", "/v1/inventory/{sku}/adjustments", adjustmentBody, "adjustment-key-001", "application/json", 201)
+	if headers.Get("Idempotency-Replayed") != "false" || headers.Get("Location") != "" {
+		t.Fatal(headers)
+	}
+	replayed, headers := h.request("POST", "/v1/inventory/SKU-001/adjustments", "/v1/inventory/{sku}/adjustments", adjustmentBody, "adjustment-key-001", "application/json", 201)
+	if !reflect.DeepEqual(receipt, replayed) || headers.Get("Idempotency-Replayed") != "true" {
+		t.Fatal("adjustment replay changed")
+	}
+	stock, _ := h.request("GET", "/v1/inventory/SKU-001", "/v1/inventory/{sku}", "", "", "", 200)
+	if stock["available"] != float64(13) || stock["reserved"] != float64(0) {
+		t.Fatal(stock)
+	}
+
+	for i, customer := range []string{"customer-a", "customer-b"} {
+		body := fmt.Sprintf(`{"customer_id":%q,"items":[{"sku":"SKU-001","quantity":1}]}`, customer)
+		h.request("POST", "/v1/orders", "/v1/orders", body, fmt.Sprintf("list-key-%03d", i), "application/json", 201)
+	}
+	first, _ := h.request("GET", "/v1/orders?limit=1", "/v1/orders", "", "", "", 200)
+	items := first["items"].([]any)
+	cursor := first["next_cursor"].(string)
+	if len(items) != 1 || cursor == "" {
+		t.Fatalf("unexpected first page: %v", first)
+	}
+	second, _ := h.request("GET", "/v1/orders?limit=1&cursor="+cursor, "/v1/orders", "", "", "", 200)
+	if len(second["items"].([]any)) != 1 || second["next_cursor"] != "" {
+		t.Fatalf("unexpected second page: %v", second)
+	}
+	filtered, _ := h.request("GET", "/v1/orders?customer_id=customer-a", "/v1/orders", "", "", "", 200)
+	if got := filtered["items"].([]any); len(got) != 1 || got[0].(map[string]any)["customer_id"] != "customer-a" {
+		t.Fatalf("unexpected filtered page: %v", filtered)
+	}
+
+	h.request("GET", "/v1/orders?limit=0", "/v1/orders", "", "", "", 400)
+	h.request("POST", "/v1/inventory/missing/adjustments", "/v1/inventory/{sku}/adjustments", adjustmentBody, "adjustment-key-002", "application/json", 404)
+	_, headers = h.request("DELETE", "/v1/orders", "", "", "", "", 405)
+	if headers.Get("Allow") != "GET, POST" {
+		t.Fatal(headers)
+	}
+}
+
+func TestNewPreservesBaselineOrderRoute(t *testing.T) {
+	store, err := memory.New([]domain.Stock{{SKU: "SKU-001", Available: 10}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	server := httptest.NewServer(httpapi.New(orders.New(store, inventory.Service{}), store, logger))
+	t.Cleanup(server.Close)
+	req, err := http.NewRequest(http.MethodGet, server.URL+"/v1/orders", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := server.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusMethodNotAllowed || resp.Header.Get("Allow") != http.MethodPost {
+		t.Fatalf("baseline route changed: status=%d headers=%v", resp.StatusCode, resp.Header)
 	}
 }
 
