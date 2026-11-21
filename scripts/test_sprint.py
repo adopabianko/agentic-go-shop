@@ -113,6 +113,49 @@ class SprintTest(unittest.TestCase):
         self.commit()
         with self.assertRaisesRegex(ValueError, "outside.txt"): sprint.check_scope(self.root, tasks["T01"], "main")
 
+    def test_update_manifest_sets_status_and_resolves_full_commit(self):
+        self.init()
+        manifest, tasks = sprint.load(self.root)
+        sprint.update_manifest(self.root, manifest, tasks, "T01", "in_progress")
+        manifest, tasks = sprint.load(self.root)
+        self.assertEqual(tasks["T01"]["status"], "in_progress")
+        self.assertIsNone(tasks["T01"]["commit"])
+
+        head = sprint.git(self.root, "rev-parse", "HEAD")
+        sprint.update_manifest(self.root, manifest, tasks, "T01", "implemented", "HEAD")
+        manifest, tasks = sprint.load(self.root)
+        self.assertEqual(tasks["T01"]["status"], "implemented")
+        self.assertEqual(tasks["T01"]["commit"], head)
+        self.assertTrue((self.root / "docs/sprint/tasks.json").read_text().endswith("\n"))
+
+    def test_update_manifest_enforces_commit_and_dependencies(self):
+        self.init()
+        manifest, tasks = sprint.load(self.root)
+        with self.assertRaisesRegex(ValueError, "requires --commit"):
+            sprint.update_manifest(self.root, manifest, tasks, "T01", "implemented")
+        with self.assertRaisesRegex(ValueError, "does not accept --commit"):
+            sprint.update_manifest(self.root, manifest, tasks, "T01", "in_progress", "HEAD")
+
+        tasks["T02"]["start_after"] = ["T01"]
+        with self.assertRaisesRegex(ValueError, "start prerequisites"):
+            sprint.update_manifest(self.root, manifest, tasks, "T02", "in_progress")
+
+        tasks["T02"]["start_after"] = []
+        tasks["T02"]["integrate_after"] = ["T01"]
+        with self.assertRaisesRegex(ValueError, "integration prerequisites"):
+            sprint.update_manifest(self.root, manifest, tasks, "T02", "integrated", "HEAD")
+
+    def test_update_manifest_rejects_integrated_commit_outside_head(self):
+        self.init()
+        sprint.git(self.root, "checkout", "-b", "worker")
+        (self.root / "worker").write_text("code")
+        self.commit()
+        worker_commit = sprint.git(self.root, "rev-parse", "HEAD")
+        sprint.git(self.root, "checkout", "main")
+        manifest, tasks = sprint.load(self.root)
+        with self.assertRaisesRegex(ValueError, "not an ancestor"):
+            sprint.update_manifest(self.root, manifest, tasks, "T01", "integrated", worker_commit)
+
 
 if __name__ == "__main__":
     unittest.main()

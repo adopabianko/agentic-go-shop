@@ -64,6 +64,16 @@ Hanya koordinator memperbarui `docs/sprint/tasks.json`, lalu commit perubahan me
 - `implemented`: acceptance implementasi dan tes fokus selesai; isi `commit` dengan SHA penuh dari commit kode. Bisa masih memakai test double dan belum terintegrasi.
 - `integrated`: implementasi sudah berada pada branch integrasi/utama yang disepakati, prerequisite integrasi terpenuhi, dan pemeriksaan gabungan relevan lulus. Isi `commit` dengan commit yang benar-benar berada pada garis history tersebut; squash bisa menghasilkan SHA baru.
 
+Gunakan helper agar status, dependensi, dan SHA diperiksa sebelum manifest ditulis:
+
+```bash
+make update-manifest TASK=T07 STATUS=in_progress
+make update-manifest TASK=T07 STATUS=implemented COMMIT=feat/t07-adjustment-acceptance
+make update-manifest TASK=T07 STATUS=integrated COMMIT=dd7e1d4
+```
+
+`COMMIT` wajib untuk `implemented` dan `integrated`, serta boleh berupa SHA atau ref Git yang dapat di-resolve. Helper menyimpan SHA penuh. Untuk `planned` dan `in_progress`, `COMMIT` tidak digunakan dan field manifest diatur ke `null`. Status `integrated` juga mengharuskan commit tersebut sudah menjadi ancestor dari `HEAD` checkout koordinator.
+
 Status adalah metadata yang perlu direview, bukan bukti otomatis. Handoff memuat perintah, exit code, jenis dependensi, pending checks, dan SHA. `make plan` melaporkan metadata; helper worktree juga memverifikasi ancestry commit prerequisite.
 
 Jika worker dibentuk dari base yang lebih tua, salinan manifest di dalam worktree itu mungkin tertinggal. Gunakan manifest checkout koordinator sebagai sumber penjadwalan; worker tidak perlu memperbaruinya sendiri.
